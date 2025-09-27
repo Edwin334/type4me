@@ -19,14 +19,14 @@ A local macOS companion that captures your screen context and generates AI-power
 
 2. **Build & Install**:
    ```bash
-   # Option 1: Create Xcode project (recommended)
-   ./create_xcode_project.sh
-   open TypeForMe.xcodeproj
-   # Build and run from Xcode
-   
-   # Option 2: Direct build (if toolchain compatible)
-   ./build.sh
-   open TypeForMe.app
+   # Build the Swift package
+   swift build
+
+   # Run the placeholder CLI (for smoke testing dependencies)
+   swift run TypeForMeCLI
+
+   # To integrate with a macOS AppKit target, open the package in Xcode
+   open Package.swift
    ```
 
 3. **Grant Permissions**: When prompted, grant:
@@ -115,8 +115,23 @@ Requirements:
 git clone <repository>
 cd type4me
 swift build -c release
-./build.sh
+swift test
 ```
+
+## Automated Tests
+
+All core modules have unit tests that can be executed locally:
+
+```bash
+swift test
+```
+
+Tests cover:
+- Style preference persistence
+- Prompt construction for both autowrite and edit modes
+- Capture region heuristics
+- Pasteboard insertion with fallback typing
+- The full invocation controller, including permission, secure-field, and empty-response flows
 
 ## Architecture
 
