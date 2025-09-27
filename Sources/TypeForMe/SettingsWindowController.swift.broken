@@ -1,0 +1,322 @@
+import AppKit
+import TypeForMeCore
+
+class SettingsWindowController: NSWindowController {
+    
+    override init(window: NSWindow?) {
+        super.init(window: window)
+    }
+    private let styleStore: StylePreferenceStoreProtocol
+    private var preferences: StylePreferences
+    
+    // UI Components
+    private var tonePopUpButton: NSPopUpButton!
+    private var brevityPopUpButton: NSPopUpButton!
+    private var greetingsTextField: NSTextField!
+    private var signOffTextField: NSTextField!
+    private var avoidTextField: NSTextField!
+    private var apiKeyTextField: NSSecureTextField!
+    
+    init() {
+        self.styleStore = StylePreferenceStore()
+        
+        // Load current preferences
+        do {
+            self.preferences = try styleStore.load()
+        } catch {
+            self.preferences = StylePreferences()
+        }
+        
+        super.init(window: nil)
+        setupWindow()
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    private func setupWindow() {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 400),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        
+        window.title = "TypeForMe Settings"
+        window.center()
+        window.isReleasedWhenClosed = false
+        
+        self.window = window
+        
+        setupContentView()
+        loadCurrentSettings()
+    }
+    
+    private func setupContentView() {
+        guard let window = window else { return }
+        
+        let contentView = NSView(frame: window.contentView!.bounds)
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        window.contentView = contentView
+        
+        // Create UI programmatically since we're not using XIB files
+        let stackView = NSStackView()
+        stackView.orientation = .vertical
+        stackView.spacing = 16
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(stackView)
+        
+        // API Key Section
+        let apiKeySection = createAPIKeySection()
+        stackView.addArrangedSubview(apiKeySection)
+        
+        // Style Section
+        let styleSection = createStyleSection()
+        stackView.addArrangedSubview(styleSection)
+        
+        // Buttons
+        let buttonSection = createButtonSection()
+        stackView.addArrangedSubview(buttonSection)
+        
+        // Layout constraints
+        NSLayoutConstraint.activate([
+            stackView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
+            stackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            stackView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            stackView.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -20)
+        ])
+    }
+    
+    private func createAPIKeySection() -> NSView {
+        let container = NSView()
+        
+        let titleLabel = NSTextField(labelWithString: "Gemini API Key:")
+        titleLabel.font = NSFont.boldSystemFont(ofSize: 13)
+        
+        apiKeyTextField = NSSecureTextField()
+        apiKeyTextField.placeholderString = "Enter your Gemini API key"
+        
+        let helpLabel = NSTextField(labelWithString: "Get your API key from Google AI Studio")
+        helpLabel.font = NSFont.systemFont(ofSize: 11)
+        helpLabel.textColor = NSColor.secondaryLabelColor
+        
+        [titleLabel, apiKeyTextField, helpLabel].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview($0)
+        }
+        
+        NSLayoutConstraint.activate([
+            titleLabel.topAnchor.constraint(equalTo: container.topAnchor),
+            titleLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            
+            apiKeyTextField.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
+            apiKeyTextField.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            apiKeyTextField.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            
+            helpLabel.topAnchor.constraint(equalTo: apiKeyTextField.bottomAnchor, constant: 4),
+            helpLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            helpLabel.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+        
+        return container
+    }
+    
+    private func createStyleSection() -> NSView {
+        let container = NSView()
+        
+        let titleLabel = NSTextField(labelWithString: "Writing Style:")
+        titleLabel.font = NSFont.boldSystemFont(ofSize: 13)
+        
+        // Tone
+        let toneLabel = NSTextField(labelWithString: "Tone:")
+        tonePopUpButton = NSPopUpButton()
+        tonePopUpButton.addItems(withTitles: StylePreferences.Tone.allCases.map { $0.rawValue })
+        
+        // Brevity
+        let brevityLabel = NSTextField(labelWithString: "Brevity:")
+        brevityPopUpButton = NSPopUpButton()
+        brevityPopUpButton.addItems(withTitles: StylePreferences.Brevity.allCases.map { $0.rawValue })
+        
+        // Greetings
+        let greetingsLabel = NSTextField(labelWithString: "Greetings:")
+        greetingsTextField = NSTextField()
+        greetingsTextField.placeholderString = "auto, none, or custom greeting"
+        
+        // Sign-off
+        let signOffLabel = NSTextField(labelWithString: "Sign-off:")
+        signOffTextField = NSTextField()
+        signOffTextField.placeholderString = "auto, none, or custom sign-off"
+        
+        // Avoid phrases
+        let avoidLabel = NSTextField(labelWithString: "Avoid phrases:")
+        avoidTextField = NSTextField()
+        avoidTextField.placeholderString = "Comma-separated phrases to avoid"
+        
+        let allViews: [NSView] = [titleLabel, toneLabel, tonePopUpButton, brevityLabel, brevityPopUpButton,
+                       greetingsLabel, greetingsTextField, signOffLabel, signOffTextField, 
+                       avoidLabel, avoidTextField]
+        
+        allViews.forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview($0)
+        }
+        
+        NSLayoutConstraint.activate([
+            titleLabel.topAnchor.constraint(equalTo: container.topAnchor),
+            titleLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            
+            toneLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 12),
+            toneLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            toneLabel.widthAnchor.constraint(equalToConstant: 80),
+            
+            tonePopUpButton.centerYAnchor.constraint(equalTo: toneLabel.centerYAnchor),
+            tonePopUpButton.leadingAnchor.constraint(equalTo: toneLabel.trailingAnchor, constant: 8),
+            tonePopUpButton.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            
+            brevityLabel.topAnchor.constraint(equalTo: toneLabel.bottomAnchor, constant: 8),
+            brevityLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            brevityLabel.widthAnchor.constraint(equalToConstant: 80),
+            
+            brevityPopUpButton.centerYAnchor.constraint(equalTo: brevityLabel.centerYAnchor),
+            brevityPopUpButton.leadingAnchor.constraint(equalTo: brevityLabel.trailingAnchor, constant: 8),
+            brevityPopUpButton.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            
+            greetingsLabel.topAnchor.constraint(equalTo: brevityLabel.bottomAnchor, constant: 8),
+            greetingsLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            greetingsLabel.widthAnchor.constraint(equalToConstant: 80),
+            
+            greetingsTextField.centerYAnchor.constraint(equalTo: greetingsLabel.centerYAnchor),
+            greetingsTextField.leadingAnchor.constraint(equalTo: greetingsLabel.trailingAnchor, constant: 8),
+            greetingsTextField.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            
+            signOffLabel.topAnchor.constraint(equalTo: greetingsLabel.bottomAnchor, constant: 8),
+            signOffLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            signOffLabel.widthAnchor.constraint(equalToConstant: 80),
+            
+            signOffTextField.centerYAnchor.constraint(equalTo: signOffLabel.centerYAnchor),
+            signOffTextField.leadingAnchor.constraint(equalTo: signOffLabel.trailingAnchor, constant: 8),
+            signOffTextField.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            
+            avoidLabel.topAnchor.constraint(equalTo: signOffLabel.bottomAnchor, constant: 8),
+            avoidLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            avoidLabel.widthAnchor.constraint(equalToConstant: 80),
+            
+            avoidTextField.centerYAnchor.constraint(equalTo: avoidLabel.centerYAnchor),
+            avoidTextField.leadingAnchor.constraint(equalTo: avoidLabel.trailingAnchor, constant: 8),
+            avoidTextField.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            avoidTextField.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+        
+        return container
+    }
+    
+    private func createButtonSection() -> NSView {
+        let container = NSView()
+        
+        let cancelButton = NSButton(title: "Cancel", target: self, action: #selector(cancelButtonClicked))
+        let saveButton = NSButton(title: "Save", target: self, action: #selector(saveButtonClicked))
+        
+        saveButton.keyEquivalent = "\r"
+        
+        [cancelButton, saveButton].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview($0)
+        }
+        
+        NSLayoutConstraint.activate([
+            saveButton.topAnchor.constraint(equalTo: container.topAnchor),
+            saveButton.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            saveButton.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            
+            cancelButton.centerYAnchor.constraint(equalTo: saveButton.centerYAnchor),
+            cancelButton.trailingAnchor.constraint(equalTo: saveButton.leadingAnchor, constant: -8)
+        ])
+        
+        return container
+    }
+    
+    private func loadCurrentSettings() {
+        // Load API key from environment or user defaults
+        if let apiKey = ProcessInfo.processInfo.environment["GEMINI_API_KEY"] {
+            apiKeyTextField.stringValue = apiKey
+        }
+        
+        // Load style preferences
+        tonePopUpButton.selectItem(withTitle: preferences.tone.rawValue)
+        brevityPopUpButton.selectItem(withTitle: preferences.brevity.rawValue)
+        
+        switch preferences.greetings {
+        case .auto:
+            greetingsTextField.stringValue = "auto"
+        case .none:
+            greetingsTextField.stringValue = "none"
+        case .custom(let value):
+            greetingsTextField.stringValue = value
+        }
+        
+        switch preferences.signOff {
+        case .auto:
+            signOffTextField.stringValue = "auto"
+        case .none:
+            signOffTextField.stringValue = "none"
+        case .custom(let value):
+            signOffTextField.stringValue = value
+        }
+        
+        avoidTextField.stringValue = preferences.avoid.joined(separator: ", ")
+    }
+    
+    @objc private func cancelButtonClicked() {
+        window?.close()
+    }
+    
+    @objc private func saveButtonClicked() {
+        // Save API key to user defaults
+        let apiKey = apiKeyTextField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !apiKey.isEmpty {
+            UserDefaults.standard.set(apiKey, forKey: "GEMINI_API_KEY")
+        }
+        
+        // Update preferences
+        if let selectedTone = StylePreferences.Tone(rawValue: tonePopUpButton.selectedItem?.title ?? "") {
+            preferences.tone = selectedTone
+        }
+        
+        if let selectedBrevity = StylePreferences.Brevity(rawValue: brevityPopUpButton.selectedItem?.title ?? "") {
+            preferences.brevity = selectedBrevity
+        }
+        
+        let greetingsValue = greetingsTextField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        if greetingsValue == "auto" {
+            preferences.greetings = .auto
+        } else if greetingsValue == "none" {
+            preferences.greetings = .none
+        } else if !greetingsValue.isEmpty {
+            preferences.greetings = .custom(greetingsValue)
+        }
+        
+        let signOffValue = signOffTextField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        if signOffValue == "auto" {
+            preferences.signOff = .auto
+        } else if signOffValue == "none" {
+            preferences.signOff = .none
+        } else if !signOffValue.isEmpty {
+            preferences.signOff = .custom(signOffValue)
+        }
+        
+        let avoidValue = avoidTextField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        preferences.avoid = avoidValue.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        
+        // Save preferences
+        do {
+            try styleStore.save(preferences)
+            window?.close()
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = "Error Saving Settings"
+            alert.informativeText = "Failed to save settings: \(error.localizedDescription)"
+            alert.runModal()
+        }
+    }
+}

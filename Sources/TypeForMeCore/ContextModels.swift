@@ -36,7 +36,7 @@ public enum InteractionMode: String, Codable {
     case edit
 }
 
-public struct Screenshot: Equatable {
+public struct Screenshot: Equatable, Sendable {
     public let data: Data
     public let format: ImageFormat
     public let originalRect: Rect
@@ -48,12 +48,12 @@ public struct Screenshot: Equatable {
     }
 }
 
-public enum ImageFormat: String, Codable {
+public enum ImageFormat: String, Codable, Sendable {
     case jpeg
     case png
 }
 
-public struct PromptPayload: Equatable {
+public struct PromptPayload: Equatable, Sendable {
     public let systemInstruction: String
     public let json: Data
 

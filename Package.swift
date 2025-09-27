@@ -12,24 +12,28 @@ let package = Package(
             targets: ["TypeForMeCore"]
         ),
         .executable(
-            name: "TypeForMeCLI",
-            targets: ["TypeForMeCLI"]
+            name: "TypeForMe",
+            targets: ["TypeForMe"]
         )
+    ],
+    dependencies: [
+        .package(url: "https://github.com/google/generative-ai-swift", from: "0.5.4")
     ],
     targets: [
         .target(
             name: "TypeForMeCore",
-            dependencies: [],
-            resources: [.copy("Resources")]
+            dependencies: []
         ),
         .executableTarget(
-            name: "TypeForMeCLI",
-            dependencies: ["TypeForMeCore"]
+            name: "TypeForMe",
+            dependencies: [
+                "TypeForMeCore",
+                .product(name: "GoogleGenerativeAI", package: "generative-ai-swift")
+            ]
         ),
         .testTarget(
             name: "TypeForMeCoreTests",
-            dependencies: ["TypeForMeCore"],
-            resources: [.copy("Fixtures")]
+            dependencies: ["TypeForMeCore", "TypeForMe"]
         )
     ]
 )

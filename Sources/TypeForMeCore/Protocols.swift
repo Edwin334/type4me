@@ -17,7 +17,7 @@ public protocol PromptBuilding {
     func makePrompt(mode: InteractionMode, selection: String?, style: StylePreferences) throws -> PromptPayload
 }
 
-public protocol GeminiClientProtocol {
+public protocol GeminiClientProtocol: Sendable {
     func generateText(prompt: PromptPayload, screenshot: Screenshot) async throws -> String
 }
 
@@ -36,6 +36,7 @@ public protocol PasteCommandPerforming {
     func type(text: String) throws
 }
 
+@MainActor
 public protocol HUDPresenting {
     func show(status: HUDStatus)
     func hide()

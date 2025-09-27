@@ -1,6 +1,6 @@
 import Foundation
 
-public final class TypeForMeController {
+public final class TypeForMeController: @unchecked Sendable {
     private let permissionChecker: PermissionChecking
     private let accessibilityProvider: AccessibilityProviding
     private let screenshotCapturer: ScreenshotCapturing
@@ -39,7 +39,20 @@ public final class TypeForMeController {
         self.capturePadding = capturePadding
     }
 
-    public func handleHotkeyInvocation() async {
+    private var isProcessing = false
+    
+    @MainActor public func handleHotkeyInvocation() async {
+        // Prevent multiple simultaneous invocations
+        guard !isProcessing else {
+            print("DEBUG: Already processing, ignoring hotkey")
+            return
+        }
+        
+        isProcessing = true
+        defer { isProcessing = false }
+        
+        print("DEBUG: Starting hotkey invocation")
+        logger?.info("Handling hotkey invocation...")
         guard permissionChecker.hasRequiredPermissions() else {
             logger?.info("Requesting permissions")
             permissionChecker.promptForMissingPermissions()
@@ -47,7 +60,9 @@ public final class TypeForMeController {
         }
 
         do {
+            logger?.info("Getting focused context...")
             let context = try accessibilityProvider.focusedContext()
+            logger?.info("Successfully got focused context.")
             guard !context.isSecure else {
                 logger?.info("Secure field detected; aborting invocation")
                 hud.show(status: .unavailable("Unavailable in secure field"))
@@ -57,12 +72,37 @@ public final class TypeForMeController {
 
             let style = try styleStore.load()
             let mode = context.mode
-            let captureRect = context.captureRect(padding: capturePadding)
+            
+            // For now, always capture the full window for better context
+            let captureRect = context.windowBounds
+            print("DEBUG: Capture rect: \(captureRect)")
+            
+            logger?.info("Capturing screenshot...")
             let screenshot = try screenshotCapturer.captureActiveWindow(region: captureRect)
+            logger?.info("Successfully captured screenshot.")
+            
+            // Debug: Save screenshot locally to see what we're sending
+            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let fileExtension = screenshot.format == .jpeg ? "jpg" : "png"
+            let screenshotPath = documentsPath.appendingPathComponent("debug_screenshot.\(fileExtension)")
+            try screenshot.data.write(to: screenshotPath)
+            print("DEBUG: Screenshot saved to: \(screenshotPath.path)")
+            
             let prompt = try promptBuilder.makePrompt(mode: mode, selection: context.selection, style: style)
+            
+            // Debug: Log the prompt being sent
+            print("DEBUG: Mode: \(mode)")
+            print("DEBUG: Selection: \(context.selection ?? "none")")
+            print("DEBUG: System instruction: \(prompt.systemInstruction)")
+            print("DEBUG: JSON payload: \(String(data: prompt.json, encoding: .utf8) ?? "invalid")")
 
             hud.show(status: mode == .edit ? .rewriting : .drafting)
+            logger?.info("Generating text from Gemini...")
             let response = try await geminiClient.generateText(prompt: prompt, screenshot: screenshot)
+            logger?.info("Successfully generated text from Gemini.")
+            
+            // Debug: Log the response from Gemini
+            print("DEBUG: Gemini response: '\(response)'")
             hud.hide()
 
             let trimmed = response.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -72,6 +112,7 @@ public final class TypeForMeController {
                 return
             }
 
+            logger?.info("Inserting text...")
             try textInserter.insert(text: trimmed, replaceSelection: mode == .edit)
             logger?.info("Inserted generated text")
         } catch {
