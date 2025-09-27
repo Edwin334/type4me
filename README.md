@@ -153,3 +153,4 @@ For issues, feature requests, or questions:
 
 **Note**: TypeForMe requires a Gemini API key which may incur costs based on Google's pricing. The app is designed to minimize API usage with efficient image compression and single-call architecture.
 # type4me
+# type4me
